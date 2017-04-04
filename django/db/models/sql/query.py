@@ -237,7 +237,7 @@ class Query:
         memo[id(self)] = result
         return result
 
-    def _prepare(self, field):
+    def _prepare_for_lookup(self, field):
         return self
 
     def get_compiler(self, using=None, connection=None):

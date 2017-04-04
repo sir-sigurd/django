@@ -65,8 +65,8 @@ class Lookup:
             self.lhs, self.rhs = new_exprs
 
     def get_prep_lookup(self):
-        if hasattr(self.rhs, '_prepare'):
-            return self.rhs._prepare(self.lhs.output_field)
+        if hasattr(self.rhs, '_prepare_for_lookup'):
+            return self.rhs._prepare_for_lookup(self.lhs.output_field)
         if self.prepare_rhs and hasattr(self.lhs.output_field, 'get_prep_value'):
             return self.lhs.output_field.get_prep_value(self.rhs)
         return self.rhs
@@ -204,10 +204,10 @@ class FieldGetDbPrepValueIterableMixin(FieldGetDbPrepValueMixin):
 
     def get_prep_lookup(self):
         prepared_values = []
-        if hasattr(self.rhs, '_prepare'):
+        if hasattr(self.rhs, '_prepare_for_lookup'):
             # A subquery is like an iterable but its items shouldn't be
             # prepared independently.
-            return self.rhs._prepare(self.lhs.output_field)
+            return self.rhs._prepare_for_lookup(self.lhs.output_field)
         for rhs_value in self.rhs:
             if hasattr(rhs_value, 'resolve_expression'):
                 # An expression will be handled by the database but can coexist

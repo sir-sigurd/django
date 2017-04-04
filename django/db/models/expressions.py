@@ -211,7 +211,7 @@ class BaseExpression:
         ])
         return c
 
-    def _prepare(self, field):
+    def _prepare_for_lookup(self, field):
         """Hook used by Lookup.get_prep_lookup() to do custom preparation."""
         return self
 
@@ -498,7 +498,7 @@ class ResolvedOuterRef(F):
             'only be used in a subquery.'
         )
 
-    def _prepare(self, output_field=None):
+    def _prepare_for_lookup(self, output_field=None):
         return self
 
 
@@ -508,7 +508,7 @@ class OuterRef(F):
             return self.name
         return ResolvedOuterRef(self.name)
 
-    def _prepare(self, output_field=None):
+    def _prepare_for_lookup(self, output_field=None):
         return self
 
 
@@ -987,7 +987,7 @@ class Subquery(Expression):
         sql = connection.ops.unification_cast_sql(self.output_field) % sql
         return sql, sql_params
 
-    def _prepare(self, output_field):
+    def _prepare_for_lookup(self, output_field):
         # This method will only be called if this instance is the "rhs" in an
         # expression: the wrapping () must be removed (as the expression that
         # contains this will provide them). SQLite evaluates ((subquery))
