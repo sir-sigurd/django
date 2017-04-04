@@ -4,15 +4,76 @@ from django.contrib.contenttypes.models import ContentType
 from django.core import checks
 from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
 from django.db import DEFAULT_DB_ALIAS, models, router, transaction
-from django.db.models import DO_NOTHING
+from django.db.models import DO_NOTHING, ForeignKey
 from django.db.models.base import ModelBase, make_foreign_order_accessors
 from django.db.models.fields.related import (
-    ForeignObject, ForeignObjectRel, ReverseManyToOneDescriptor,
-    lazy_related_operation,
+    ForeignObject, ForeignObjectRel, ForwardManyToOneDescriptor,
+    ReverseManyToOneDescriptor, lazy_related_operation,
 )
+from django.db.models.fields.related_lookups import RelatedExact, RelatedIn
 from django.db.models.query_utils import PathInfo
 from django.utils.encoding import force_text
 from django.utils.functional import cached_property
+
+
+class ContentTypeDescriptor(ForwardManyToOneDescriptor):
+    def __get__(self, instance, instance_type=None):
+        if instance is None:
+            return self
+
+        pk = self.field.get_local_related_value(instance)[0]
+        if pk is None:
+            return None
+        model = self.field.related_model
+        # Trying to get from the cache directly, because
+        # model.objects.db_manager() is too slow to be used here.
+        return (
+            model.objects._cache.get(instance._state.db, {}).get(pk) or
+            model.objects.db_manager(hints={'instance': instance}).get_for_id(pk)
+        )
+
+    def __set__(self, instance, value):
+        if isinstance(value, ModelBase):
+            value = self.field.related_model.objects.db_manager(hints={'instance': instance}).get_for_model(value)
+        super().__set__(instance, value)
+
+
+class ContentTypeField(ForeignKey):
+    forward_related_accessor_class = ContentTypeDescriptor
+
+    def __init__(self, *args, **kwargs):
+        super().__init__('contenttypes.ContentType', *args, **kwargs)
+
+    def deconstruct(self):
+        name, path, args, kwargs = super().deconstruct()
+        del kwargs['to']
+        return name, path, args, kwargs
+
+    def get_db_prep_value(self, value, connection, prepared=False):
+        if isinstance(value, ModelBase):
+            value = self.related_model.objects.db_manager(connection.alias).get_for_model(value).pk
+        return super().get_db_prep_value(value, connection, prepared=prepared)
+
+
+@ContentTypeField.register_lookup
+class ContentTypeModelExact(RelatedExact):
+    def get_prep_lookup(self):
+        if isinstance(self.rhs, ModelBase):
+            return self.rhs
+        return super().get_prep_lookup()
+
+
+@ContentTypeField.register_lookup
+class ContentTypeModelIn(RelatedIn):
+    def get_prep_lookup(self):
+        models = []
+        non_models = []
+        for val in self.rhs:
+            (models if isinstance(val, ModelBase) else non_models).append(val)
+        self.rhs = non_models
+        val_list = super().get_prep_lookup()
+        val_list.extend(models)
+        return val_list
 
 
 class GenericForeignKey:

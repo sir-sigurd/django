@@ -5,8 +5,8 @@ from django.http import Http404, HttpRequest
 from django.test import TestCase, override_settings
 
 from .models import (
-    Author, ConcreteModel, FooWithBrokenAbsoluteUrl, FooWithoutUrl, FooWithUrl,
-    ProxyModel,
+    Author, ConcreteModel, FooWithBrokenAbsoluteUrl, FooWithContentTypeField,
+    FooWithoutUrl, FooWithUrl, ProxyModel,
 )
 
 
@@ -246,6 +246,50 @@ class ContentTypesTests(TestCase):
         # Stale ContentTypes can be fetched like any other object.
         ct_fetched = ContentType.objects.get_for_id(ct.pk)
         self.assertIsNone(ct_fetched.model_class())
+
+    def test_content_type_field_uses_cache(self):
+        # Fill the cache.
+        ct = ContentType.objects.get_for_model(ContentType)
+
+        FooWithContentTypeField.objects.create(ct=ct)
+
+        obj = FooWithContentTypeField.objects.get()
+        with self.assertNumQueries(0):
+            self.assertEqual(obj.ct, ct)
+
+    def test_content_type_field_lookups(self):
+        ct1 = ContentType.objects.get_for_model(FooWithContentTypeField)
+        ct2 = ContentType.objects.get_for_model(FooWithUrl)
+        ct3 = ContentType.objects.get_for_model(FooWithoutUrl)
+
+        obj1 = FooWithContentTypeField.objects.create(ct=ct1)
+        obj2 = FooWithContentTypeField.objects.create(ct=ct2)
+        obj3 = FooWithContentTypeField.objects.create(ct=ct3)
+
+        with self.assertNumQueries(1):
+            self.assertQuerysetEqual(
+                FooWithContentTypeField.objects.filter(ct=FooWithContentTypeField),
+                [obj1.pk],
+                lambda obj: obj.pk,
+            )
+        with self.assertRaisesMessage(ValueError, "invalid literal for int() with base 10: 'string'"):
+            list(FooWithContentTypeField.objects.filter(ct='string'))
+
+        with self.assertNumQueries(1):
+            self.assertQuerysetEqual(
+                FooWithContentTypeField.objects.filter(ct__in=[FooWithUrl, ct3]).order_by('pk'),
+                [obj2.pk, obj3.pk],
+                lambda obj: obj.pk,
+            )
+        with self.assertRaisesMessage(ValueError, "invalid literal for int() with base 10: 'string'"):
+            list(FooWithContentTypeField.objects.filter(ct__in=[FooWithUrl, 'string']))
+
+    def test_content_type_field_save(self):
+        ct = ContentType.objects.get_for_model(FooWithUrl)
+        obj = FooWithContentTypeField.objects.create(ct=FooWithUrl)
+        self.assertEqual(obj.ct, ct)
+        obj.refresh_from_db()
+        self.assertEqual(obj.ct, ct)
 
 
 class TestRouter:

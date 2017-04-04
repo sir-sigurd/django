@@ -1045,7 +1045,7 @@ class Query:
         Check whether the object passed while querying is of the correct type.
         If not, raise a ValueError specifying the wrong object.
         """
-        if hasattr(value, '_meta'):
+        if hasattr(value, '_meta') and not isinstance(value, type):
             if not check_rel_lookup_compatibility(value._meta.model, opts, field):
                 raise ValueError(
                     'Cannot query "%s": Must be "%s" instance.' %

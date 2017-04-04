@@ -1,7 +1,7 @@
 from urllib.parse import quote
 
 from django.contrib.contenttypes.fields import (
-    GenericForeignKey, GenericRelation,
+    ContentTypeField, GenericForeignKey, GenericRelation,
 )
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.sites.models import SiteManager
@@ -128,3 +128,10 @@ class ModelWithNullFKToSite(models.Model):
 
     def get_absolute_url(self):
         return '/title/%s/' % quote(self.title)
+
+
+class FooWithContentTypeField(models.Model):
+    ct = ContentTypeField(on_delete=models.CASCADE)
+
+    def __str__(self):
+        return '%s' % self.ct
