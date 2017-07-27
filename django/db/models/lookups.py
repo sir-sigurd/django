@@ -218,14 +218,6 @@ class FieldGetDbPrepValueIterableMixin(FieldGetDbPrepValueMixin):
         else:
             return super().process_rhs(compiler, connection)
 
-    def resolve_expression_parameter(self, compiler, connection, sql, param):
-        params = [param]
-        if hasattr(param, 'resolve_expression'):
-            param = param.resolve_expression(compiler.query)
-        if hasattr(param, 'as_sql'):
-            sql, params = param.as_sql(compiler, connection)
-        return sql, params
-
     def batch_process_rhs(self, compiler, connection, rhs=None):
         pre_processed = super().batch_process_rhs(compiler, connection, rhs)
         # The params list may contain expressions which compile to a
@@ -233,7 +225,7 @@ class FieldGetDbPrepValueIterableMixin(FieldGetDbPrepValueMixin):
         # same argument and attempt to replace them with the result of
         # compiling the param step.
         sql, params = zip(*(
-            self.resolve_expression_parameter(compiler, connection, sql, param)
+            param.as_sql(compiler, connection) if hasattr(param, 'as_sql') else (sql, [param])
             for sql, param in zip(*pre_processed)
         ))
         params = itertools.chain.from_iterable(params)

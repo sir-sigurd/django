@@ -995,12 +995,12 @@ class Query:
             for sub_value in value:
                 if hasattr(sub_value, 'resolve_expression'):
                     pre_joins = self.alias_refcount.copy()
-                    processed_values.append(
-                        sub_value.resolve_expression(self, reuse=can_reuse, allow_joins=allow_joins)
-                    )
+                    sub_value = sub_value.resolve_expression(self, reuse=can_reuse, allow_joins=allow_joins)
                     # The used_joins for a tuple of expressions is the union of
                     # the used_joins for the individual expressions.
                     used_joins.update(k for k, v in self.alias_refcount.items() if v > pre_joins.get(k, 0))
+                processed_values.append(sub_value)
+            value = tuple(processed_values) if isinstance(value, tuple) else processed_values
         # For Oracle '' is equivalent to null. The check needs to be done
         # at this stage because join promotion can't be done at compiler
         # stage. Using DEFAULT_DB_ALIAS isn't nice, but it is the best we

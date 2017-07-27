@@ -1,7 +1,6 @@
 import re
 
 from django.contrib.gis.db.models.fields import BaseSpatialField
-from django.db.models.expressions import Expression
 from django.db.models.lookups import Lookup, Transform
 from django.db.models.sql.query import Query
 
@@ -61,8 +60,6 @@ class GISLookup(Lookup):
         if isinstance(self.rhs, Query):
             # If rhs is some Query, don't touch it.
             return super().process_rhs(compiler, connection)
-        if isinstance(self.rhs, Expression):
-            self.rhs = self.rhs.resolve_expression(compiler.query)
         rhs, rhs_params = super().process_rhs(compiler, connection)
         placeholder = connection.ops.get_geom_placeholder(self.lhs.output_field, self.rhs, compiler)
         return placeholder % rhs, rhs_params
@@ -293,7 +290,7 @@ class DistanceLookupBase(GISLookup):
     def process_distance(self, compiler, connection):
         dist_param = self.rhs_params[0]
         return (
-            compiler.compile(dist_param.resolve_expression(compiler.query))
+            compiler.compile(dist_param)
             if hasattr(dist_param, 'resolve_expression') else
             ('%s', connection.ops.get_distance(self.lhs.output_field, self.rhs_params, self.lookup_name))
         )
