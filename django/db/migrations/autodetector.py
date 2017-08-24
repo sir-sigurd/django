@@ -332,14 +332,14 @@ class MigrationAutodetector:
         """
         for app_label, ops in sorted(self.generated_operations.items()):
             # construct a dependency graph for intra-app dependencies
-            dependency_graph = {op: set() for op in ops}
-            for op in ops:
-                for dep in op._auto_deps:
-                    if dep[0] == app_label:
-                        for op2 in ops:
-                            if self.check_dependency(op2, dep):
-                                dependency_graph[op].add(op2)
-
+            dependency_graph = {
+                op: {
+                    op2
+                    for dep in op._auto_deps if dep[0] == app_label
+                    for op2 in ops if self.check_dependency(op2, dep)
+                }
+                for op in ops
+            }
             # we use a stable sort for deterministic tests & general behavior
             self.generated_operations[app_label] = stable_topological_sort(ops, dependency_graph)
 
