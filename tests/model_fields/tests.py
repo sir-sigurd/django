@@ -114,6 +114,26 @@ class ChoicesTests(SimpleTestCase):
         self.assertIsNone(Whiz(c=None).get_c_display())         # Blank value
         self.assertEqual(Whiz(c='').get_c_display(), '')        # Empty value
 
+    def test_overriding_FIELD_display(self):
+        class FooBar(models.Model):
+            foo_bar = models.CharField(choices=[(1, 'foo'), (2, 'bar')])
+
+            def get_foo_bar_display(self):
+                return 'something'
+
+        f = FooBar(foo_bar=1)
+        self.assertEqual(f.get_foo_bar_display(), 'something')
+
+    def test_overriding_FIELD_display_2(self):
+        class FooBar2(models.Model):
+            def get_foo_bar_display(self):
+                return 'something'
+
+            foo_bar = models.CharField(choices=[(1, 'foo'), (2, 'bar')])
+
+        f = FooBar2(foo_bar=1)
+        self.assertEqual(f.get_foo_bar_display(), 'something')
+
     def test_iterator_choices(self):
         """
         get_choices() works with Iterators.
